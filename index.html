@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AudioContext suspend/resume repro</title>
+
+<p><strong>⚠️ Warning: This test plays a continuous tone. Lower your volume before clicking Play.</strong></p>
+<p>Play, then suspend/resume until the tone becomes distorted.</p>
+<button>Play</button>
+<button>Suspend / resume</button>
+
+<script type="module">
+  let context;
+  let node;
+  const [play, cycle] = document.querySelectorAll("button");
+
+  async function restart() {
+    await context.suspend();
+    await context.resume();
+  }
+
+  play.onclick = async () => {
+    if (context) return;
+    context = new AudioContext({ sampleRate: 44100 });
+    await context.audioWorklet.addModule("./processor.js");
+    node = new AudioWorkletNode(context, "tone");
+    node.connect(context.destination);
+    await restart(); // First-gesture latency workaround from the application.
+  };
+
+  cycle.onclick = async () => {
+    await new Promise(resolve => {
+      node.port.onmessage = resolve;
+      node.port.postMessage(80);
+    });
+    await restart();
+  };
+</script>
